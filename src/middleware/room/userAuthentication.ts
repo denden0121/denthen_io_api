@@ -7,7 +7,6 @@ const dummmyUser = {
 
 export async function userAuthentication (req: Request, res: Response, next: NextFunction) {
 
-
 	if (!res.locals.userCode || !res.locals.userRole) {
 		return res.status(400).json({
 			error: "Bad Request",

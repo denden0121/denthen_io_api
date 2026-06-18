@@ -1,26 +1,27 @@
 import express from "express";
+import 'dotenv/config';
 import '@/config/db.js';
-import { roomAuthentication } from "./middleware/roomAuthentication.js";
-import { userAuthentication } from "./middleware/userAuthentication.js";
-import { corsMiddleware } from "./middleware/cors.js";
-import { generateSpecialKey } from "@/config/generateSpecialKey.js";
-import { returnSpecialKey } from "./route/returnSpecialKey.js";
-import {  joinRoom } from "./route/joinRoom.js";
+import { configureGlobalMiddlewares } from "./config/middleware.config.js";
+import apiRouter from "./route/index.js";
+
+// refactor
 import { generateParticipantKey } from "./config/generateParticipantKey.js";
-import { returnParticipantKey } from "./route/returnParticipantKey.js";
+import { returnParticipantKey } from "./route/room/returnParticipantKey.js";
+
 
 const app = express();
-app.use(express.json());
-app.use(corsMiddleware);
 
+// global middlewares
+configureGlobalMiddlewares(app);
 
-app.use('/create', generateSpecialKey, returnSpecialKey);
+// api routers
+app.use("/api", apiRouter);
 app.use('/create/participant', generateParticipantKey, returnParticipantKey);
-app.use('/join', roomAuthentication, joinRoom);	
 
 
-const PORT = 3000;
 
+
+const PORT = process.env.APP_PORT as string;
 app.listen(PORT, () => {
   console.log("Server is running on port " + PORT);
 });

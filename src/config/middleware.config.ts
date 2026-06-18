@@ -1,4 +1,4 @@
-import express, { Application } from 'express';
+import express, { type Application } from 'express';
 import { corsMiddleware } from '../middleware/global/cors.js';
 
 export const configureGlobalMiddlewares = (app: Application): void => {

@@ -12,7 +12,7 @@ export async function generateParticipant (req: Request, res: Response, next: Ne
 			return ;
 		}
 
-		res.locals.roomCode = `$participant_{room_code}_${participant_code}`;
+		res.locals.roomCode = `participant_{room_code}_${participant_code}`;
 		return next();
 
 	} catch (error) {
@@ -33,7 +33,7 @@ export async function generateAdmin (req: Request, res: Response, next: NextFunc
 			return ;
 		}
 
-		res.locals.roomCode = `$participant_{room_code}_${admin_code}`;
+		res.locals.roomCode = `participant_{room_code}_${admin_code}`;
 		return next();
 
 	} catch (error) {
