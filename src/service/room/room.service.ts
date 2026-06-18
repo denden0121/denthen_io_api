@@ -6,7 +6,7 @@ import { error } from "node:console";
 export const createRoom = async (username: string, roomCode: string): Promise<ICreateRoomResponse>  => {
 	try {
 		const { rows } = await pool.query<ICreateRoomResponse>(
-			'INSERT INTO room (room_code, username) VALUES ($1, $2) RETURNING room_code, admin_code, username',
+			'INSERT INTO room (room_code, username) VALUES ($1, $2) RETURNING *',
 			[roomCode, username]
 		);
 		if (!rows || rows.length === 0) {

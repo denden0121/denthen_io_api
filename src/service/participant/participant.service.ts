@@ -17,6 +17,5 @@ export const createParticipant = async (roomCode: UUID, username: string): Promi
 		console.error("Model Error:", error);
         throw error; 
     }
-	
 };
 
