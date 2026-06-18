@@ -1,6 +1,6 @@
 import pool from "@/config/db.js";
 import type { UUID } from "node:crypto";
-import { ICreateRoomResponse, IParticipant } from "@/model/room.model.js";
+import { type IParticipant } from "@/model/participant.model.js";
 import { error } from "node:console";
 
 export const createParticipant = async (roomCode: UUID, username: string): Promise<IParticipant> => {
