@@ -8,6 +8,7 @@ const allowedOrigins = [
 const corsOptions = {
     origin: allowedOrigins, 
     methods: "GET,POST,PUT,DELETE",
+	credentials: true,
 };
 
 export const corsMiddleware = cors(corsOptions);
