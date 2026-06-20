@@ -1,5 +1,5 @@
 import express from "express";
-import { generateParticipantKey } from "@/controller/participant/participant.controller.js";
+import { generateParticipantKey } from "@/controller/participant.controller.js";
 import { returnParticipantKey } from "./returnParticipantKey.js";
 
 const router = express.Router();

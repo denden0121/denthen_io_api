@@ -12,14 +12,13 @@ export const returnParticipantKey =  (req: Request, res: Response) => {
 			})
 		}
 		else {
-			
-			// const {room_id, participant_code} = res.locals?.newParticipant
-			res.status(200).json({
-			success: true,
-			message: "Participant Created Successfully",
-			data: {
-				specialKey: res.locals.newParticipant
-				}
+			const {room_id, participant_code, username} = res.locals?.newParticipant
+			return  res.status(200).json({
+				success: true,
+				message: "Participant Created Successfully",
+				data: {
+					specialKey: `participant_${room_id}_${participant_code}_${username}`
+				}	
 			})
 		}
 	} catch (error) {
@@ -31,6 +30,3 @@ export const returnParticipantKey =  (req: Request, res: Response) => {
 	}
 
 };
-
-
-

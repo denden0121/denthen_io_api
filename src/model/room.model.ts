@@ -16,3 +16,8 @@ export interface ICreateRoomResponse {
 	username: string
 }
 
+export interface IMyTokenPayload {
+    roomCode: string;
+    username: string;
+    userRole: 'admin' | 'participant'; 
+}
