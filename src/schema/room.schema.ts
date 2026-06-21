@@ -5,6 +5,9 @@ export const CreateRoomSchema = z.object({
                .min(2, "Username must be at least 2 characters long"),
 });
 
+export const JoinRoomSchema = z.object({
+	specialKey: z.string({})
+})
 
 export const SpecialKeyPayloadSchema = z.object({
 	role: z.enum(["admin", "participant"]),
@@ -13,5 +16,9 @@ export const SpecialKeyPayloadSchema = z.object({
 	username: z.string()
 })
 
+export const RefreshTokenSchema = z.string()
+
+
 export type CreateRoomInput = z.infer<typeof CreateRoomSchema>;
 export type SpecialKeyPayloadInput = z.infer<typeof SpecialKeyPayloadSchema>;
+export type RefreshTokenSchemaInput = z.infer<typeof RefreshTokenSchema>;

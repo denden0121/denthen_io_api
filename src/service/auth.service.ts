@@ -2,11 +2,11 @@ import pool from "@/config/db.js";
 import jwt, { type JwtPayload } from 'jsonwebtoken';
 import dotenv from "dotenv";
 dotenv.config();
-import { selectRoomAsAdmin, selectRoomAsParticipant } from "./room.service.js";
+import { selectRoomAsAdmin, selectRoomAsParticipant, selectAdminCode } from "./room.service.js";
 import type { UUID } from "node:crypto";
 import { type IRoom, type IMyTokenPayload } from "@/model/room.model.js";
 import { AppError } from "@/util/appError.js";
-import { type SpecialKeyPayloadInput } from "@/schema/room.schema.js";
+import { type SpecialKeyPayloadInput, type RefreshTokenSchemaInput } from "@/schema/room.schema.js";
 
 // const authSecret = process.env.AUTH_SECRET || "01c31f5e51d3b19d5feec8308cf695cede83a137354dd97059490b26af846cd3";
 // const authExpiresIn = process.env.AUTH_SECRET_EXPIRES_IN || "30s";
@@ -18,11 +18,22 @@ const authExpiresIn =  "30s";
 const authRefreshToken =  "654fc594fdcdfceef67c26179534865bc98a908ccfcee97372807e418badcc87";
 const authRefreshTokenExpiresIn = "1d";
 
+export const isRefreshToken = async (role: string, refreshToken: string, newAdminCode: any) => {
+	if (role === "admin") {
+		try {
+			const queryText = "SELECT * FROM refresh_token WHERE token_hash = $1 AND user_code = $2;";
+			const { rows } = await pool.query(queryText, [refreshToken, newAdminCode]);
+			return rows.length > 0 ? rows[0] : null;
+		} catch (error) {
+			throw new AppError(500, "Failed to delete refresh token in the database.");
+		}
+	}
+};
 
 
-export const validateAdminKey = async (validateSpecialKey: SpecialKeyPayloadInput) => {
+export const validateAdminKey = async (validatedSpecialKey: SpecialKeyPayloadInput) => {
 	try {
-		const response = await selectRoomAsAdmin(validateSpecialKey.code, validateSpecialKey.id);
+		const response = await selectRoomAsAdmin(validatedSpecialKey.code, validatedSpecialKey.id);
 		return {
 			userData: response,
 			userRole: "admin"
@@ -32,7 +43,7 @@ export const validateAdminKey = async (validateSpecialKey: SpecialKeyPayloadInpu
 	}
 }
 
-export const validateParticipantKey = async (validateSpecialKey: SpecialKeyPayloadInput) => {
+export const validateParticipantKey = async (validatedSpecialKey: SpecialKeyPayloadInput) => {
 	// try {
 	// 	const specialKeyArr = specialKey.split("_");
 	// 	const [role, roomId, participantCode, username] = specialKeyArr;
@@ -84,10 +95,9 @@ export const validateParticipantKey = async (validateSpecialKey: SpecialKeyPaylo
 // 	}
 // }
 
-export const checkSpecialKey = async (validateSpecialKey: SpecialKeyPayloadInput)  => {
+export const checkSpecialKey = async (validatedSpecialKey: SpecialKeyPayloadInput)  => {
 	try {
-		
-		const userData = validateSpecialKey.role === "admin" ? validateAdminKey(validateSpecialKey) : validateParticipantKey(validateSpecialKey);
+		const userData = validatedSpecialKey.role === "admin" ? validateAdminKey(validatedSpecialKey) : validateParticipantKey(validatedSpecialKey);
 		return userData;
 	} catch (error) {
 		throw error;
@@ -125,11 +135,11 @@ export const generateAccessToken = async (payload: any) => {
 
 export const generateRefreshToken = async (payload: any) => {
 	try {
-		if (!authSecret) {
+		if (!authRefreshToken) {
 			throw new AppError(500, "JWT Configuration Failure: authSecret is undefined.");
 		}
-		return jwt.sign(payload, authSecret, {
-			expiresIn: authExpiresIn,
+		return jwt.sign(payload, authRefreshToken, {
+			expiresIn: authRefreshTokenExpiresIn,
 		});
 	} catch (error) {
 		throw error;
@@ -170,10 +180,40 @@ export const jwtSign = async (data: any) => {
 	}
 	
 }
-
-export const jwtVerifyRefreshToken = async (myAccessRefreshToken: string) => {
+export const jwtSignNew = async (data: any) => {
 	try {
-		const verified = jwt.verify(myAccessRefreshToken, authRefreshToken) as unknown as IMyTokenPayload;
+		const payload = {
+		roomCode: data.userData.room_code,
+		username: data.userData.username,
+		role: data.userRole
+		}
+		const json = {
+			roomCode: data.userData.room_code,
+			username: data.userData.username,
+			createdAt: data.userData.created_at
+		}
+		const accessToken = await generateAccessToken(payload);
+		const refreshToken = await generateRefreshToken(payload);
+		const decoded = jwt.decode(refreshToken) as JwtPayload | null;
+		if (!decoded || typeof decoded === 'string' || !decoded.exp) {
+			throw new AppError(500, "Internal state error: Data context was lost in transition.");
+		}
+		const expiresAtDate = new Date(decoded.exp * 1000);
+		return {
+			accessToken: accessToken,
+			refreshToken: refreshToken,
+			refreshTokenExpiresAt: expiresAtDate,
+			json: json
+		};
+	} catch (error) {
+		throw error;
+	}
+	
+}
+
+export const jwtVerifyRefreshToken = async (validatedRefreshToken: RefreshTokenSchemaInput) => {
+	try {
+		const verified = jwt.verify(validatedRefreshToken, authRefreshToken) as unknown as IMyTokenPayload;
 		const newPayload = {
 			roomCode: verified.roomCode,
 			username: verified.username,
@@ -198,19 +238,43 @@ export const jwtVerifyRefreshToken = async (myAccessRefreshToken: string) => {
 	
 }
 
+export const getTokenPayload = async (validatedRefreshToken: RefreshTokenSchemaInput) => {
+	try {
+		const verified = jwt.verify(validatedRefreshToken, authRefreshToken);
+		// const verified = jwt.verify(validatedRefreshToken, authRefreshToken) as unknown as IMyTokenPayload;
+		return verified;
+	} catch (error) {
+    	throw error;
+	}
+	
+}
 
-export const deleteRefreshToken = async (role: string, data: any) => {
+export const getUserCode = async (userPayload: any) => {
+	try {
+		const role = userPayload.role;
+		const roomCode = userPayload.roomCode
+		const username = userPayload.username
+		const response = await selectAdminCode(roomCode, username);
+		return response;
+	} catch (error) {
+		throw error;
+	}
+}
+
+
+export const deleteRefreshToken = async (role: string, newAdminCode: any) => {
 	if (role === "admin") {
-		const userCode: UUID = data.admin_code;
 		try {
 			const queryText = "DELETE FROM refresh_token WHERE user_code = $1;";
-			const { rows } = await pool.query(queryText, [userCode]);
+			const { rows } = await pool.query(queryText, [newAdminCode]);
 			return rows.length > 0 ? rows[0] : null;
 		} catch (error) {
 			throw new AppError(500, "Failed to delete refresh token in the database.");
 		}
 	}
 };
+
+
 export const insertRefreshToken = async (role: string, userCode: UUID, refreshToken: string, expiresAt: Date)=> {
 	if (role === "admin") {
 		try {

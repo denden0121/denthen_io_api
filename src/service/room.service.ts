@@ -37,9 +37,26 @@ export const selectRoomAsAdmin = async (room_code: string, admin_code: string): 
 		const queryText = 'SELECT * FROM room WHERE room_code = $1 AND admin_code = $2;';
         const { rows } = await pool.query<ICreateRoomResponse>(queryText, [room_code, admin_code]);
 		if (!rows || rows.length === 0) {
-            throw new AppError(500, "Failed to create room entry in the database.");
+            throw new AppError(500, "Failed to select room  in the database.");
 		}
         return rows[0]!;
+	} catch (error) {
+		throw error; 
+	}
+}
+
+export const selectAdminCode = async (room_code: string, username: string) => {
+	try {
+		const queryText = 'SELECT admin_code FROM room WHERE room_code = $1 AND username = $2;';
+        const { rows } = await pool.query(queryText, [room_code, username]);
+		if (!rows || rows.length === 0) {
+            throw new AppError(500, "Failed to select admin code in the database.");
+		}
+        return {
+			adminCode: rows[0].admin_code!,
+			role: "admin"
+
+		}
 	} catch (error) {
 		throw error; 
 	}
