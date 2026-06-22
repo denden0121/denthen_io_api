@@ -2,7 +2,7 @@ import pool from "@/config/db.js";
 import jwt, { type JwtPayload } from 'jsonwebtoken';
 import dotenv from "dotenv";
 dotenv.config();
-import { selectRoomAsAdmin, selectRoomAsParticipant, selectAdminCode } from "./room.service.js";
+import { selectRoomAsAdmin, selectRoomAsParticipant, selectAdminCode, selectParticipantCode } from "./room.service.js";
 import type { UUID } from "node:crypto";
 import { type IRoom, type IMyTokenPayload } from "@/model/room.model.js";
 import { AppError } from "@/util/appError.js";
@@ -28,6 +28,15 @@ export const isRefreshToken = async (role: string, refreshToken: string, newAdmi
 			throw new AppError(500, "Failed to delete refresh token in the database.");
 		}
 	}
+	if (role === "participant") {
+		try {
+			const queryText = "SELECT * FROM refresh_token WHERE token_hash = $1 AND user_code = $2;";
+			const { rows } = await pool.query(queryText, [refreshToken, newAdminCode]);
+			return rows.length > 0 ? rows[0] : null;
+		} catch (error) {
+			throw new AppError(500, "Failed to delete refresh token in the database.");
+		}
+	}
 };
 
 
@@ -44,20 +53,15 @@ export const validateAdminKey = async (validatedSpecialKey: SpecialKeyPayloadInp
 }
 
 export const validateParticipantKey = async (validatedSpecialKey: SpecialKeyPayloadInput) => {
-	// try {
-	// 	const specialKeyArr = specialKey.split("_");
-	// 	const [role, roomId, participantCode, username] = specialKeyArr;
-	// 	if (!role || !roomId || !participantCode || !username) {
-	// 		throw new AppError(400, "Missing required parameter: specialKey");
-	// 	}
-	// 	const response = await selectRoomAsParticipant(roomId as UUID, participantCode as UUID);
-	// 	return {
-	// 		userData: response,
-	// 		userRole: "participant"
-	// 	};
-	// } catch (error) {
-	// 	throw error;
-	// }
+	try {
+		const response = await selectRoomAsParticipant(validatedSpecialKey.code, validatedSpecialKey.username);
+		return {
+			userData: response,
+			userRole: "participant"
+		};
+	} catch (error) {
+		throw error;
+	}
 }
 
 
@@ -160,7 +164,8 @@ export const jwtSign = async (data: any) => {
 		const json = {
 			roomCode: data.userData.room_code,
 			username: data.userData.username,
-			createdAt: data.userData.created_at
+			role: data.userRole,
+			createdAt: data.userData.created_at || data.userData.joined_at
 		}
 		const accessToken = await generateAccessToken(payload);
 		const refreshToken = await generateRefreshToken(payload);
@@ -180,6 +185,7 @@ export const jwtSign = async (data: any) => {
 	}
 	
 }
+
 export const jwtSignNew = async (data: any) => {
 	try {
 		const payload = {
@@ -254,8 +260,14 @@ export const getUserCode = async (userPayload: any) => {
 		const role = userPayload.role;
 		const roomCode = userPayload.roomCode
 		const username = userPayload.username
-		const response = await selectAdminCode(roomCode, username);
-		return response;
+		if (role === "admin") {
+			const response = await selectAdminCode(roomCode, username);
+			return response;
+		}
+		else {
+			const response = await selectParticipantCode(roomCode, username);
+			return response;
+		}
 	} catch (error) {
 		throw error;
 	}
@@ -272,6 +284,15 @@ export const deleteRefreshToken = async (role: string, newAdminCode: any) => {
 			throw new AppError(500, "Failed to delete refresh token in the database.");
 		}
 	}
+	if (role === "participant") {
+		try {
+			const queryText = "DELETE FROM refresh_token WHERE user_code = $1;";
+			const { rows } = await pool.query(queryText, [newAdminCode]);
+			return rows.length > 0 ? rows[0] : null;
+		} catch (error) {
+			throw new AppError(500, "Failed to delete participant refresh token in the database.");
+		}
+	}
 };
 
 
@@ -279,11 +300,33 @@ export const insertRefreshToken = async (role: string, userCode: UUID, refreshTo
 	if (role === "admin") {
 		try {
 			const queryText =
-				"INSERT INTO refresh_token (user_code, token_hash, expires_at) VALUES ($1, $2, $3) RETURNING *";
+				"INSERT INTO refresh_token (user_code, token_hash, expires_at) VALUES ($1, $2, $3) ON CONFLICT (user_code) DO NOTHING RETURNING  *";
 			const { rows } = await pool.query(queryText, [userCode, refreshToken, expiresAt]);
+			if (rows.length === 0) {
+				return false;
+			}
+			if (!rows) {
+				throw new AppError(500, 'Server problem: No data inserted to database.');
+			}
 			return rows.length > 0 ? rows[0] : null;
 		} catch (error) {
-			throw new AppError(500, "Failed to insert refresh token in the database.");
+			throw error;
+		}
+	}
+	if (role === "participant") {
+		try {
+			const queryText =
+				"INSERT INTO refresh_token (user_code, token_hash, expires_at) VALUES ($1, $2, $3) ON CONFLICT (user_code) DO NOTHING RETURNING  *";
+			const { rows } = await pool.query(queryText, [userCode, refreshToken, expiresAt]);
+			if (rows.length === 0) {
+				return false;
+			}
+			if (!rows) {
+				throw new AppError(500, 'Server problem: No data inserted to database.');
+			}
+			return rows.length > 0 ? rows[0] : null;
+		} catch (error) {
+			throw error;
 		}
 	}
 };

@@ -5,6 +5,12 @@ export const CreateRoomSchema = z.object({
                .min(2, "Username must be at least 2 characters long"),
 });
 
+export const CreateParticipantSchema = z.object({
+	roomCode: z.string().min(8, "Room Code must be at least 8 characters long"),
+	username: z.string({ message: "Username must be text" })
+               .min(2, "Username must be at least 2 characters long"),
+})
+
 export const JoinRoomSchema = z.object({
 	specialKey: z.string({})
 })
