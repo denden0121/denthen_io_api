@@ -7,7 +7,7 @@ import { AppError } from "@/util/appError.js";
 export const createRoom = async (username: string, roomCode: string): Promise<ICreateRoomResponse>  => {
 	try {
 		const { rows } = await pool.query<ICreateRoomResponse>(
-			'INSERT INTO room (room_code, username) VALUES ($1, $2) ON CONFLICT (room_code) DO NOTHING RETURNING  RETURNING *',
+			'INSERT INTO room (room_code, username) VALUES ($1, $2) ON CONFLICT (room_code) DO NOTHING RETURNING *',
 			[roomCode, username]
 		);
 		if (rows.length === 0) {

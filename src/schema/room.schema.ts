@@ -22,6 +22,7 @@ export const SpecialKeyPayloadSchema = z.object({
 	username: z.string()
 })
 
+export const AccessTokenSchema = z.string()
 export const RefreshTokenSchema = z.string()
 
 
