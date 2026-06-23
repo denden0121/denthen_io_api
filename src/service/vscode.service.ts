@@ -1,7 +1,6 @@
 import pool from "@/config/db.js";
 import type { UUID } from "node:crypto";
 import { type ICreateRoomResponse, type IRoom } from "@/model/room.model.js";
-import { type IParticipant } from "@/model/participant.model.js";
 import { AppError } from "@/util/appError.js";
 import { type HandleDocumentSchemaInput, type HandleDocumentSchema } from "@/schema/vscode.schema.js";
 

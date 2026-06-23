@@ -1,6 +1,5 @@
 import pool from "@/config/db.js";
 import type { UUID } from "node:crypto";
-import { type IParticipant } from "@/model/participant.model.js";
 import { error } from "node:console";
 import { Router, type Request, type Response } from "express";
 import { AppError } from "@/util/appError.js";

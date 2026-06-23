@@ -2,7 +2,7 @@ import pool from "@/config/db.js";
 import jwt, { type JwtPayload } from 'jsonwebtoken';
 import dotenv from "dotenv";
 dotenv.config();
-import { selectRoomAsAdmin, selectRoomAsParticipant, selectAdminCode, selectParticipantCode } from "./room.service.js";
+import { selectAdminCode, selectParticipantCode, checkRoomCode, validateUser } from "./room.service.js";
 import type { UUID } from "node:crypto";
 import { type IRoom, type IMyTokenPayload } from "@/model/room.model.js";
 import { AppError } from "@/util/appError.js";
@@ -40,39 +40,10 @@ export const isRefreshToken = async (role: string, refreshToken: string, newAdmi
 };
 
 
-export const validateAdminKey = async (validatedSpecialKey: SpecialKeyPayloadInput) => {
-	try {
-		const response = await selectRoomAsAdmin(validatedSpecialKey.code, validatedSpecialKey.id);
-		return {
-			userData: response,
-			userRole: "admin"
-		};
-	} catch (error) {
-		throw error;
-	}
-}
-
-export const validateParticipantKey = async (validatedSpecialKey: SpecialKeyPayloadInput) => {
-	try {
-		const response = await selectRoomAsParticipant(validatedSpecialKey.code, validatedSpecialKey.username);
-		return {
-			userData: response,
-			userRole: "participant"
-		};
-	} catch (error) {
-		throw error;
-	}
-}
-
-
-// export const validateAdminKey = async (specialKey: string) => {
+// export const validateAdminKey = async (validatedSpecialKey: SpecialKeyPayloadInput) => {
 // 	try {
-// 		const specialKeyArr = specialKey.split("_");
-// 		const [role, roomCode, adminCode, username] = specialKeyArr;
-// 		if (!role || !roomCode || !adminCode || !username) {
-// 			throw new AppError(400, "Missing required parameter: specialKey");
-// 		}
-// 		const response = await selectRoomAsAdmin(roomCode, adminCode as UUID);
+// 		const getRoomId = await checkRoomCode(validatedSpecialKey.code);
+// 		const response = await selectRoomAsAdmin(getRoomId.id, validatedSpecialKey.username);
 // 		return {
 // 			userData: response,
 // 			userRole: "admin"
@@ -82,14 +53,9 @@ export const validateParticipantKey = async (validatedSpecialKey: SpecialKeyPayl
 // 	}
 // }
 
-// export const validateParticipantKey = async (specialKey: string) => {
+// export const validateParticipantKey = async (validatedSpecialKey: SpecialKeyPayloadInput) => {
 // 	try {
-// 		const specialKeyArr = specialKey.split("_");
-// 		const [role, roomId, participantCode, username] = specialKeyArr;
-// 		if (!role || !roomId || !participantCode || !username) {
-// 			throw new AppError(400, "Missing required parameter: specialKey");
-// 		}
-// 		const response = await selectRoomAsParticipant(roomId as UUID, participantCode as UUID);
+// 		const response = await selectRoomAsParticipant(validatedSpecialKey.code, validatedSpecialKey.username);
 // 		return {
 // 			userData: response,
 // 			userRole: "participant"
@@ -99,24 +65,28 @@ export const validateParticipantKey = async (validatedSpecialKey: SpecialKeyPayl
 // 	}
 // }
 
-export const checkSpecialKey = async (validatedSpecialKey: SpecialKeyPayloadInput)  => {
+export const validateSpecialKey = async (validatedSpecialKey: SpecialKeyPayloadInput) => {
 	try {
-		const userData = validatedSpecialKey.role === "admin" ? validateAdminKey(validatedSpecialKey) : validateParticipantKey(validatedSpecialKey);
-		return userData;
+		const getRoomId = await checkRoomCode(validatedSpecialKey.code);
+		const response = await validateUser(getRoomId.id, validatedSpecialKey.username, validatedSpecialKey.role);
+		return {
+			user: response,
+		};
 	} catch (error) {
 		throw error;
 	}
-};
-// export const checkSpecialKey = async (specialKey: string)  => {
+}
+
+// export const checkSpecialKey = async (validatedSpecialKey: SpecialKeyPayloadInput)  => {
 // 	try {
-// 		const specialKeyArr = specialKey.split("_");
-// 		const [user_role, , , ] = specialKeyArr;
-// 		const userData = user_role === "admin" ? validateAdminKey(specialKey) : validateParticipantKey(specialKey);
+// 		// const userData = validatedSpecialKey.role === "admin" ? validateAdminKey(validatedSpecialKey) : validateParticipantKey(validatedSpecialKey);
+// 		const userData = validateSpecialKey(validatedSpecialKey);
 // 		return userData;
 // 	} catch (error) {
 // 		throw error;
 // 	}
 // };
+
 
 export const checkPermission = async (response: any)  => {
 	console.log(`Check Permission: ${response}`);
@@ -153,19 +123,27 @@ export const generateRefreshToken = async (payload: any) => {
 export const sendCookie = async () => {
 
 }
-
+// {
+//     "user": {
+//         "id": "61da0281-fe56-4042-87ef-d1161e631791",
+//         "room_id": "a7bf5bc8-a84a-4f8a-97a0-fce9e3e358f3",
+//         "username": "denz",
+//         "role": "participant",
+//         "joined_at": "2026-06-23T16:56:27.328Z"
+//     }
+// }
 export const jwtSign = async (data: any) => {
 	try {
 		const payload = {
-		roomCode: data.userData.room_code,
-		username: data.userData.username,
-		role: data.userRole
+			userId: data.user.id,
+			roomId: data.user.room_id,
+			username: data.user.username,
+			role: data.user.role
 		}
 		const json = {
-			roomCode: data.userData.room_code,
-			username: data.userData.username,
-			role: data.userRole,
-			createdAt: data.userData.created_at || data.userData.joined_at
+			username: data.user.username,
+			role: data.user.role,
+			createdAt: data.user.joined_at
 		}
 		const accessToken = await generateAccessToken(payload);
 		const refreshToken = await generateRefreshToken(payload);
@@ -221,10 +199,11 @@ export const jwtVerifyRefreshToken = async (validatedRefreshToken: RefreshTokenS
 	try {
 		const verified = jwt.verify(validatedRefreshToken, authRefreshToken) as unknown as IMyTokenPayload;
 		const newPayload = {
-			roomCode: verified.roomCode,
+			userId: verified.userId,
+			roomId: verified.roomId,
 			username: verified.username,
-			role: verified.userRole
-		}	
+			role: verified.role
+		}
 		const accessToken = await generateAccessToken(newPayload);
 		const refreshToken = await generateRefreshToken(newPayload);
 		const decoded = jwt.decode(refreshToken) as JwtPayload | null;
@@ -235,7 +214,8 @@ export const jwtVerifyRefreshToken = async (validatedRefreshToken: RefreshTokenS
 		return {
 			accessToken: accessToken,
 			refreshToken: refreshToken,
-			refreshTokenExpiresAt: expiresAtDate
+			refreshTokenExpiresAt: expiresAtDate,
+			newPayload
 	};
 		
 	} catch (error) {
@@ -247,7 +227,6 @@ export const jwtVerifyRefreshToken = async (validatedRefreshToken: RefreshTokenS
 export const getTokenPayload = async (validatedRefreshToken: RefreshTokenSchemaInput) => {
 	try {
 		const verified = jwt.verify(validatedRefreshToken, authRefreshToken);
-		// const verified = jwt.verify(validatedRefreshToken, authRefreshToken) as unknown as IMyTokenPayload;
 		return verified;
 	} catch (error) {
     	throw error;
@@ -296,7 +275,7 @@ export const deleteRefreshToken = async (role: string, newAdminCode: any) => {
 };
 
 
-export const insertRefreshToken = async (role: string, userCode: UUID, refreshToken: string, expiresAt: Date)=> {
+export const insertRefreshToken = async (role: string, userCode: string, refreshToken: string, expiresAt: Date)=> {
 	if (role === "admin") {
 		try {
 			const queryText =

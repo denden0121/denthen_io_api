@@ -18,7 +18,6 @@ export const JoinRoomSchema = z.object({
 export const SpecialKeyPayloadSchema = z.object({
 	role: z.enum(["admin", "participant"]),
 	code: z.string(),
-	id: z.uuid("Invalid ID format"),
 	username: z.string()
 })
 
