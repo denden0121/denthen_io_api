@@ -4,7 +4,7 @@ import { generateRoomCode, validateRoomAccess, handleJoinRoomSuccess, generateNe
 const router = express.Router();
 
 router.post('/create', generateRoomCode, handleSpecialKeySuccess);
-router.post('/join', validateRoomAccess, handleJoinRoomSuccess);
+router.post('/join', validateRoomAccess, handleJoinRoomSuccess); 
 router.post('/refresh', generateNewRefreshToken);
 
 export default router;

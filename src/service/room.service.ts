@@ -1,14 +1,33 @@
 import pool from "@/config/db.js";
 import type { UUID } from "node:crypto";
-import { type ICreateRoomResponse, type IRoom } from "@/model/room.model.js";
-import { type IParticipant } from "@/model/participant.model.js";
+import { type ICreateRoomResponse, type IRoom, type ITRoom } from "@/model/room.model.js";
+import { type ITUser } from "@/model/user.model.js";
 import { AppError } from "@/util/appError.js";
 
-export const createRoom = async (username: string, roomCode: string): Promise<ICreateRoomResponse>  => {
+export const createNewAdmin = async (room: ITRoom, username: string): Promise<ITUser>  => {
 	try {
-		const { rows } = await pool.query<ICreateRoomResponse>(
-			'INSERT INTO room (room_code, username) VALUES ($1, $2) ON CONFLICT (room_code) DO NOTHING RETURNING *',
-			[roomCode, username]
+		const roomId = room.id;
+		const { rows } = await pool.query<ITUser>(
+			'INSERT INTO t_user (room_id, username, role) VALUES ($1, $2, $3) RETURNING *',
+			[roomId, username, 'admin']
+		);
+		if (rows.length === 0) {
+			throw new AppError(400, 'Username/Admin already exist in this room.');
+		}
+		if (!rows) {
+			throw new AppError(500, 'Server problem: No data inserted to database.');
+		}
+		return rows[0]!; 
+	} catch (error) {
+		throw error; 
+	}
+};
+
+export const createNewRoom = async (roomCode: string): Promise<ITRoom>  => {
+	try {
+		const { rows } = await pool.query<ITRoom>(
+			'INSERT INTO t_room (room_code) VALUES ($1) ON CONFLICT (room_code) DO NOTHING RETURNING *',
+			[roomCode]
 		);
 		if (rows.length === 0) {
 			throw new AppError(400, 'Room code already exist: No data inserted to database.');
@@ -16,19 +35,30 @@ export const createRoom = async (username: string, roomCode: string): Promise<IC
 		if (!rows) {
 			throw new AppError(500, 'Server problem: No data inserted to database.');
 		}
-		// if (!rows || rows.length === 0) {
-        //     throw new AppError(500, "Failed to create room entry in the database.");
-		// } 
 		return rows[0]!; 
 	} catch (error) {
 		throw error; 
 	}
 };
 
-export const checkRoomCode = async (room_code: string): Promise<IRoom> => {
+export const createNewRoomWithAdmin = async (roomCode: string, username: string) => {
 	try {
-		const queryText = 'SELECT * FROM room WHERE room_code = $1;';
-        const { rows } = await pool.query<IRoom>(queryText, [room_code]);
+		const newRoomData = await createNewRoom(roomCode);
+		const newAdminData = await createNewAdmin(newRoomData, username);
+
+		return {
+			room: newRoomData,
+			user: newAdminData
+		}
+	} catch (error) {
+		return error;
+	}
+}
+
+export const checkRoomCode = async (roomCode: string): Promise<ITRoom> => {
+	try {
+		const queryText = 'SELECT * FROM t_room WHERE room_code = $1;';
+        const { rows } = await pool.query<ITRoom>(queryText, [roomCode]);
 		if (!rows || rows.length === 0) {
             throw new AppError(500, "Room does not exits in the database.");
 		}
@@ -38,12 +68,12 @@ export const checkRoomCode = async (room_code: string): Promise<IRoom> => {
 	}
 }
 
-export const selectRoomAsAdmin = async (room_code: string, admin_code: string): Promise<ICreateRoomResponse> => {
+export const validateUser = async (roomId: string, username: string, role: string): Promise<ITUser> => {
 	try {
-		const queryText = 'SELECT * FROM room WHERE room_code = $1 AND admin_code = $2;';
-        const { rows } = await pool.query<ICreateRoomResponse>(queryText, [room_code, admin_code]);
+		const queryText = 'SELECT * FROM t_user WHERE room_id = $1 AND username = $2 AND role = $3';
+        const { rows } = await pool.query<ITUser>(queryText, [roomId, username, role]);
 		if (!rows || rows.length === 0) {
-            throw new AppError(500, "Failed to select room  in the database.");
+            throw new AppError(500, "Failed to find user in the database.");
 		}
         return rows[0]!;
 	} catch (error) {
@@ -51,19 +81,32 @@ export const selectRoomAsAdmin = async (room_code: string, admin_code: string): 
 	}
 }
 
+// export const selectRoomAsAdmin = async (roomId: string, username: string): Promise<ICreateRoomResponse> => {
+// 	try {
+// 		const queryText = 'SELECT * FROM room WHERE room_code = $1 AND admin_code = $2;';
+//         const { rows } = await pool.query<ICreateRoomResponse>(queryText, [roomId, username]);
+// 		if (!rows || rows.length === 0) {
+//             throw new AppError(500, "Failed to select room  in the database.");
+// 		}
+//         return rows[0]!;
+// 	} catch (error) {
+// 		throw error; 
+// 	}
+// }
 
-export const selectRoomAsParticipant = async (room_id: string, username: string): Promise<IParticipant> => {
-	try {
-		const queryText = 'SELECT * FROM participant WHERE room_id = $1 AND username = $2;';
-        const { rows } = await pool.query<IParticipant>(queryText, [room_id, username]);
-		if (!rows || rows.length === 0) {
-            throw new AppError(500, "Failed to select participant in the database.");
-		}
-        return rows[0]!;
-	} catch (error) {
-		throw error; 
-	}
-}
+
+// export const selectRoomAsParticipant = async (room_id: string, username: string): Promise<IParticipant> => {
+// 	try {
+// 		const queryText = 'SELECT * FROM participant WHERE room_id = $1 AND username = $2;';
+//         const { rows } = await pool.query<IParticipant>(queryText, [room_id, username]);
+// 		if (!rows || rows.length === 0) {
+//             throw new AppError(500, "Failed to select participant in the database.");
+// 		}
+//         return rows[0]!;
+// 	} catch (error) {
+// 		throw error; 
+// 	}
+// }
 
 export const selectAdminCode = async (room_code: string, username: string) => {
 	try {
@@ -99,21 +142,6 @@ export const selectParticipantCode = async (room_code: string, username: string)
 		throw error; 
 	}
 }
-
-
-// export const selectRoomAsParticipant = async (room_id: UUID, participant_code: UUID): Promise<IParticipant> => {
-// 	try {
-// 		const queryText = 'SELECT * FROM participant WHERE room_id = $1 AND participant_code = $2;';
-//         const { rows } = await pool.query<IParticipant>(queryText, [room_id, participant_code]);
-// 		if (!rows || rows.length === 0) {
-//             throw new AppError(500, "Failed to create room entry in the database.");
-// 		}
-//         return rows[0]!;
-// 	} catch (error) {
-// 		throw error; 
-// 	}
-// }
-
 
 
 export const checkRoomId = async (id: string): Promise<IRoom> => {

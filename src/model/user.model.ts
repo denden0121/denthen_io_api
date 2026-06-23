@@ -1,10 +1,9 @@
 import { type UUID } from "node:crypto";
 
-export interface IParticipant {
+export interface ITUser {
 	id: UUID,
 	room_id: UUID,
-	participant_code: UUID,
 	username: string,
-	joined_at: Date
+	role: 'admin' | 'participant',
+	joined_at: string,
 }
-
