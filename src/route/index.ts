@@ -1,6 +1,6 @@
 import express from "express";
 import roomRouter from "./room.routes.js";
-import participantRouter from "./participant.route.js";
+import participantRouter from "./user.route.js";
 import vscodeRouter from "./vscode.route.js";
 const apiRouter = express.Router();
 import { userAuthorization } from "@/middleware/auth.middleware.js";

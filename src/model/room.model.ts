@@ -21,3 +21,12 @@ export interface IMyTokenPayload {
     username: string;
     userRole: 'admin' | 'participant'; 
 }
+
+export interface ITRoom {
+	id: UUID,
+	room_code: Text,
+	is_active: Boolean,
+	last_activity: string,
+	created_at: string,	
+}
+

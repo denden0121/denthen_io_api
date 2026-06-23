@@ -1,5 +1,5 @@
 import  { type Request, type Response, type NextFunction } from "express";
-import { createRoom } from "@/service/room.service.js";
+import { createNewRoomWithAdmin } from "@/service/room.service.js";
 import * as crypto from "node:crypto";
 import { type ICreateRoomResponse } from "@/model/room.model.js";
 import { checkSpecialKey, jwtSign, jwtVerifyRefreshToken, getTokenPayload, getUserCode } from '@/service/auth.service.js';
@@ -13,8 +13,8 @@ export const generateRoomCode = async (req: Request, res: Response, next: NextFu
 		const validateBody = CreateRoomSchema.parse(req.body);
 		const { username } = validateBody;
 		const roomCode = crypto.randomBytes(4).toString('hex');
-        const newRoom = await createRoom(username, roomCode);
-        res.locals.newRoom = newRoom as ICreateRoomResponse;
+        const newRoomWithAdmin = await createNewRoomWithAdmin(roomCode, username);
+        res.locals.newRoomWithAdmin = newRoomWithAdmin;
         return next();
     } catch (error) {
         return next(error);	
@@ -23,18 +23,19 @@ export const generateRoomCode = async (req: Request, res: Response, next: NextFu
 
 export const handleSpecialKeySuccess = (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const newRoom = res.locals?.newRoom as ICreateRoomResponse;
-		if (!newRoom) {
+		const newRoomWithAdmin = res.locals?.newRoomWithAdmin;
+		console.log(newRoomWithAdmin)
+		if (!newRoomWithAdmin) {
             throw new AppError(500, "Internal state error: Data context was lost in transition.");
 		}
 		else {
-			const {room_code, admin_code, username} = newRoom;
 			return  res.status(200).json({
 				success: true,
 				message: "Room Created Successfully",
 				data: {
-					specialKey: `admin_${room_code}_${admin_code}_${username}`
-					}	
+					roomCode: newRoomWithAdmin.room.room_code,
+					specialKey: `${newRoomWithAdmin.user.role}_${newRoomWithAdmin.room.room_code}_${newRoomWithAdmin.user.username}`
+				}	
 			})
 		}
 	} catch (error) {

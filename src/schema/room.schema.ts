@@ -25,7 +25,14 @@ export const SpecialKeyPayloadSchema = z.object({
 export const AccessTokenSchema = z.string()
 export const RefreshTokenSchema = z.string()
 
-
 export type CreateRoomInput = z.infer<typeof CreateRoomSchema>;
 export type SpecialKeyPayloadInput = z.infer<typeof SpecialKeyPayloadSchema>;
 export type RefreshTokenSchemaInput = z.infer<typeof RefreshTokenSchema>;
+
+//new schema
+export const CreateTRoomSchema = z.object({
+	username: z.string({message: "Username must be a text"})
+				.min(2, "Username must be atleast 2 characters long")
+});
+
+export type CreateTRoomInput = z.infer<typeof CreateTRoomSchema>;
