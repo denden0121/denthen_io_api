@@ -43,20 +43,22 @@ export const handleSpecialKeySuccess = (req: Request, res: Response, next: NextF
 
 export const validateRoomAccess = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const { specialKey } = req.body;
+		const { clientType, specialKey } = req.body;
 		if (!specialKey) {
 			throw new AppError(400, "Missing required parameter: specialKey");
 		}
 		const specialKeyArr = specialKey.split("_");
         const [role, code, username] = specialKeyArr;
 		console.log(role, code, username);
-		const validatedSpecialKey = SpecialKeyPayloadSchema.parse({
-			role,
-			code,
-			username
+		const validated = SpecialKeyPayloadSchema.parse({
+			clientType,
+			specialKey: {
+				role, code, username
+			}
 		})
-		const response = await validateSpecialKey(validatedSpecialKey);
+		const response = await validateSpecialKey(validated);
 		res.locals.data = response;
+		res.locals.clientType = clientType;
 		next();
 	} catch (error) {
         return next(error);
@@ -67,20 +69,21 @@ export const validateRoomAccess = async (req: Request, res: Response, next: Next
 export const handleJoinRoomSuccess = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const data = res.locals.data;
+		const clientType = res.locals.clientType;
 		if (!data) {
             throw new AppError(500, "Internal state error: Data context was lost in transition.");
         }
-		const response = await jwtSign(data);
-		const isLogged = await insertRefreshToken(data.user.role, data.user.id, response.refreshToken, response.refreshTokenExpiresAt);
+		const response = await jwtSign(data, clientType);
+		const isLogged = await insertRefreshToken(data.user.role, data.user.id, response.refreshToken, response.refreshTokenExpiresAt, clientType);
 		if (!isLogged) {
-			await deleteRefreshToken(data.user.role, data.user.id)
-			await insertRefreshToken(data.user.role, data.user.id, response.refreshToken, response.refreshTokenExpiresAt);
+			await deleteRefreshToken(data.user.role, data.user.id, clientType)
+			await insertRefreshToken(data.user.role, data.user.id, response.refreshToken, response.refreshTokenExpiresAt, clientType);
 		}
 		res.cookie("MY_ACCESS_TOKEN", response.accessToken, {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === "production",
 			sameSite: "lax",
-			maxAge: 30 * 1000, 
+			maxAge: 5 * 60 * 1000, 
 		});
 		res.cookie("MY_ACCESS_REFRESH_TOKEN", response.refreshToken, {
 			httpOnly: true,
@@ -105,24 +108,25 @@ export const generateNewRefreshToken = async (req: Request, res: Response, next:
 		const userPayload = await getTokenPayload(validatedRefreshToken);
 
 		// // Set new refresh token data
-		const newRole = verifyToken.newPayload.role;
-		const newAdminCode = verifyToken.newPayload.userId;
+		const newRole = verifyToken.newPayload.user.role;
+		const newAdminCode = verifyToken.newPayload.user.userId;
+		const newClientType = verifyToken.newPayload.clientType;
 		const newRefreshToken = verifyToken.refreshToken;
 		const newRefreshTokenExpiresAt = verifyToken.refreshTokenExpiresAt;
 		
 		//check if refresh token exist in database
-		const response = await insertRefreshToken(newRole, newAdminCode, newRefreshToken, newRefreshTokenExpiresAt);
+		const response = await insertRefreshToken(newRole, newAdminCode, newRefreshToken, newRefreshTokenExpiresAt, newClientType);
 		if (!response) {
 			// delete old refresh token in db
-			await deleteRefreshToken(newRole, newAdminCode);
+			await deleteRefreshToken(newRole, newAdminCode, newClientType);
 			// // insert new refresh token in db
-			await insertRefreshToken(newRole, newAdminCode, newRefreshToken, newRefreshTokenExpiresAt);
+			await insertRefreshToken(newRole, newAdminCode, newRefreshToken, newRefreshTokenExpiresAt, newClientType);
 		}
 		res.cookie("MY_ACCESS_TOKEN", verifyToken.accessToken, {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === "production",
 			sameSite: "lax",
-			maxAge: 30 * 1000, 
+			maxAge: 5 * 60 * 1000, 
 		});
 		res.cookie("MY_ACCESS_REFRESH_TOKEN", verifyToken.refreshToken, {
 			httpOnly: true,

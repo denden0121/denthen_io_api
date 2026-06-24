@@ -1,14 +1,14 @@
 import pool from "@/config/db.js";
-import type { UUID } from "node:crypto";
-import { type ICreateRoomResponse, type IRoom } from "@/model/room.model.js";
+import { type IMyTokenPayload } from "@/model/room.model.js";
 import { AppError } from "@/util/appError.js";
 import { type HandleDocumentSchemaInput, type HandleDocumentSchema } from "@/schema/vscode.schema.js";
 
-export const insertWorkspace = async (workspace: HandleDocumentSchemaInput) => {
+
+export const insertWorkspace = async (payload: IMyTokenPayload, validatedDocument: HandleDocumentSchemaInput) => {
 	try {
 		const { rows } = await pool.query(
-			'INSERT INTO workspace (room_id, user_code, user_role, code, type, file_extension) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-			[]
+			'INSERT INTO workspace (room_id, user_id, user_role, code, type, file_extension) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+			[payload.roomId, payload.userId, payload.role, validatedDocument.code, validatedDocument.type, validatedDocument.fileExtension]
 		);
 		if (!rows || rows.length === 0) {
 			throw new AppError(500, 'Server error: No data inserted to database.');

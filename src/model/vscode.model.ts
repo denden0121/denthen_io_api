@@ -20,6 +20,12 @@ export interface IVscodePayload {
 	file_extension: 'html' | 'css' | 'js',
 }
 
+export interface IVscodePayload {
+	code: Text,
+	type: 'document' | 'snippet',
+	fileExtension: 'html' | 'css' | 'js',
+}
+
 // CREATE TABLE IF NOT EXISTS workspace (
 // 	id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
 // 	room_id UUID NOT NULL,
