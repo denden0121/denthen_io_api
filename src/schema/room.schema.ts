@@ -15,11 +15,22 @@ export const JoinRoomSchema = z.object({
 	specialKey: z.string({})
 })
 
+// export const SpecialKeyPayloadSchema = z.object({
+// 	role: z.enum(["admin", "participant"]),
+// 	code: z.string(),
+// 	username: z.string()
+// })
+
 export const SpecialKeyPayloadSchema = z.object({
-	role: z.enum(["admin", "participant"]),
-	code: z.string(),
-	username: z.string()
+	clientType: z.enum(["web", "vscode"]),
+	specialKey: z.object({
+		role: z.enum(["admin", "participant"]),
+		code: z.string(),
+		username: z.string()
+	})
 })
+
+export const ClientTypeSchema = z.enum(["web", "vscode"])
 
 export const AccessTokenSchema = z.string()
 export const RefreshTokenSchema = z.string()
