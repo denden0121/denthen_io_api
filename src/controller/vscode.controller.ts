@@ -4,7 +4,7 @@ import type { Request, Response, NextFunction } from "express";
 import { insertWorkspace } from "@/service/vscode.service.js";
 import { validateSpecialKey } from "@/service/auth.service.js";
 import { SpecialKeyPayloadSchema } from "@/schema/room.schema.js";
-import { jwtSign, insertRefreshToken, deleteRefreshToken } from "@/service/auth.service.js";
+import { jwtSign, insertRefreshToken, deleteRefreshToken } from "@/service/vscode.service.js";
 
 export const handleDocument = async (req: Request, res: Response, next: NextFunction) => {
 	try {
@@ -23,7 +23,7 @@ export const handleDocument = async (req: Request, res: Response, next: NextFunc
 
 export const validateRoomAccess = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const { specialKey } = req.body;
+		const { clientType, specialKey } = req.body;
 		if (!specialKey) {
 			throw new AppError(400, "Missing required parameter: specialKey");
 		}
@@ -31,12 +31,16 @@ export const validateRoomAccess = async (req: Request, res: Response, next: Next
 		const [role, code, username] = specialKeyArr;
 		console.log(role, code, username);
 		const validatedSpecialKey = SpecialKeyPayloadSchema.parse({
-			role,
-			code,
-			username
+			clientType,
+			specialKey: {
+				role,
+				code,
+				username
+			}
 		})
 		const response = await validateSpecialKey(validatedSpecialKey);
 		res.locals.data = response;
+		res.locals.clientType = clientType;
 		next();
 	} catch (error) {
 		return next(error);
@@ -47,14 +51,15 @@ export const validateRoomAccess = async (req: Request, res: Response, next: Next
 export const handleJoinRoomSuccess = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const data = res.locals.data;
+		const clientType = res.locals.clientType;
 		if (!data) {
 			throw new AppError(500, "Internal state error: Data context was lost in transition.");
 		}
-		const response = await jwtSign(data);
-		const isLogged = await insertRefreshToken(data.user.role, data.user.id, response.refreshToken, response.refreshTokenExpiresAt);
+		const response = await jwtSign(data, clientType);
+		const isLogged = await insertRefreshToken(data.user.role, data.user.id, response.refreshToken, response.refreshTokenExpiresAt, clientType);
 		if (!isLogged) {
-			await deleteRefreshToken(data.user.role, data.user.id)
-			await insertRefreshToken(data.user.role, data.user.id, response.refreshToken, response.refreshTokenExpiresAt);
+			await deleteRefreshToken(data.user.role, data.user.id, clientType)
+			await insertRefreshToken(data.user.role, data.user.id, response.refreshToken, response.refreshTokenExpiresAt ,clientType);
 		}
 		res.status(200).json({
 			success: true,
@@ -67,3 +72,5 @@ export const handleJoinRoomSuccess = async (req: Request, res: Response, next: N
 		return next(error);
 	}
 }
+
+

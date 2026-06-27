@@ -143,6 +143,7 @@ export const jwtSign = async (data: any, clientType: any) => {
 				role: data.user.role
 			}
 		}
+		console.log(data)
 		const json = {
 			clientType: clientType,
 			user: {

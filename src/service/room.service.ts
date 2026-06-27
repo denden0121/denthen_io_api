@@ -156,3 +156,20 @@ export const checkRoomId = async (id: string): Promise<IRoom> => {
 		throw error; 
 	}
 }
+
+
+
+// commit
+
+export const getAllCommit = async () => {
+	try {
+		const queryText = 'SELECT * FROM workspace;';
+        const { rows } = await pool.query(queryText);
+		if (!rows || rows.length === 0) {
+            throw new AppError(500, "Failed to get commit in the database.");
+		}
+        return rows!;
+	} catch (error) {
+		throw error; 
+	}
+}

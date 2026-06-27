@@ -10,5 +10,4 @@ router.get("/dashboard", (req: Request, res: Response) => {
 
 router.post("/export", handleDocument);
 
-
 export default router;

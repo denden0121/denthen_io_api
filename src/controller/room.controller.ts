@@ -1,5 +1,5 @@
 import  { type Request, type Response, type NextFunction } from "express";
-import { createNewRoomWithAdmin } from "@/service/room.service.js";
+import { createNewRoomWithAdmin, getAllCommit } from "@/service/room.service.js";
 import * as crypto from "node:crypto";
 import {  jwtSign, jwtVerifyRefreshToken, getTokenPayload, validateSpecialKey } from '@/service/auth.service.js';
 import { deleteRefreshToken, insertRefreshToken, isRefreshToken } from "@/service/auth.service.js";
@@ -143,3 +143,14 @@ export const generateNewRefreshToken = async (req: Request, res: Response, next:
 }
 
 
+
+
+// commit
+export const getCommit = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const data = await getAllCommit();
+		res.status(200).json(data);
+    } catch (error) {
+        return next(error);	
+    }
+};

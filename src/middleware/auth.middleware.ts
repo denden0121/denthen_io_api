@@ -25,7 +25,9 @@ export const userAuthorization = async (req: Request, res: Response, next: NextF
 
         // 3. Validate and verify the token exactly like you did before
         const validatedAccessToken = AccessTokenSchema.parse(token);
+		console.log(validatedAccessToken)
         const verified = jwt.verify(validatedAccessToken, authSecret);
+		console.log(verified)
         
         const payload = verified as IMyTokenPayload;
         res.locals.userPayload = payload;
